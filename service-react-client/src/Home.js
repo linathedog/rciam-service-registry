@@ -61,7 +61,6 @@ const Home = ()=> {
        else{
          globalState.setLogState({log_state:false});
        }
-
      }
 
 
@@ -82,12 +81,10 @@ const Home = ()=> {
          }).then(response=>{
            setLoading(false);
            localStorage.removeItem('invitation');
-           console.log(response);
            if(response){
              history.push('/'+tenant_name+'/invitation_error',{error: response.error});
            }
            else {
-             console.log('')
              history.push('/'+tenant.name+'/invitations');
            }
 

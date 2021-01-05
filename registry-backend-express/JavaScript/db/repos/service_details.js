@@ -1,6 +1,6 @@
 const sql = require('../sql').service_details;
 
-const cs = {}; // Reusable ColumnSet objects.
+let cs = {}; // Reusable ColumnSet objects.
 
 /*
  This repository mixes hard-coded and dynamic SQL, primarily to show a diverse example of using both.
@@ -12,7 +12,9 @@ class ServiceDetailsRepository {
         this.pgp = pgp;
 
         // set-up all ColumnSet objects, if needed:
+
         createColumnsets(pgp);
+
     }
 
     async add(data,sub){
@@ -30,6 +32,21 @@ class ServiceDetailsRepository {
       })
     }
 
+
+    async addMultiple(services){
+      const query = this.pgp.helpers.insert(services,cs.insert_multi,'service_details')+"RETURNING id";
+      return this.db.any(query)
+      .then(service_ids => {
+          services.forEach((service,index)=> {
+            services[index].id = service_ids[index].id;
+          });
+          return services
+      })
+      .catch(error => {
+          throw error
+      });
+    }
+
     async update(data,id,sub){
         return this.db.oneOrNone(sql.update,{
           service_description: data.service_description,
@@ -43,17 +60,6 @@ class ServiceDetailsRepository {
         });
     }
 
-    // Gets All Services with necessary data to create a list view.
-    async findAllForList(){
-      return this.db.any("SELECT id,service_description,logo_uri,service_name,deleted,requester,integration_environment,state FROM service_details JOIN service_state USING (id) WHERE deleted=FALSE OR (deleted=TRUE AND state!='deployed')");
-    }
-    // Get Services owned by user with user_id=id with necessary data to create a list view.
-    // async findBySubForList(sub){
-    //   return this.db.any("SELECT id,service_description,logo_uri,service_name,deleted,requester,integration_environment,state FROM service_details JOIN service_state USING (id) WHERE requester = $1 AND (deleted=false OR (deleted=TRUE AND state!='deployed'))", sub);
-    // }
-    async findBySubForList(sub){
-      return this.db.any(sql.getOwnList,{sub:sub});
-    }
 
     async getProtocol(service_id,sub,tenant){
       return this.db.oneOrNone("SELECT protocol FROM ((SELECT protocol,group_id,deleted,id FROM service_details WHERE id=$1 AND tenant=$3) as service_details LEFT JOIN service_state ON service_details.id=service_state.id AND (deleted=false OR (deleted=TRUE AND state!='deployed'))) as service LEFT JOIN (SELECT id AS group_id,sub FROM groups LEFT JOIN group_subs ON groups.id=group_subs.group_id WHERE sub=$2) AS foo USING (group_id) WHERE sub IS NOT NULL",[+service_id,sub,tenant]);
@@ -62,10 +68,10 @@ class ServiceDetailsRepository {
 
     async belongsToRequester(service_id,sub){
       if(sub==='admin'){
-        return this.db.oneOrNone("SELECT protocol,state FROM service_details JOIN service_state USING (id) WHERE id = $1 AND (deleted=false OR (deleted=TRUE AND state!='deployed'))", [+service_id]);
+        return this.db.oneOrNone("SELECT protocol,state FROM service_details JOIN service_state USING (id) WHERE id = $1 AND deleted=false", [+service_id]);
       }
       else{
-        return this.db.oneOrNone("SELECT protocol,state FROM service_details JOIN service_state USING (id) WHERE id = $1 AND requester= $2 AND (deleted=false OR (deleted=TRUE AND state!='deployed'))", [+service_id,sub]);
+        return this.db.oneOrNone("SELECT protocol,state FROM service_details JOIN service_state USING (id) WHERE id = $1 AND requester= $2 AND deleted=false", [+service_id,sub]);
       }
     }
 
@@ -73,8 +79,8 @@ class ServiceDetailsRepository {
       try {
         return this.db.tx('update-service',async t =>{
           let queries = [];
-          queries.push(t.service_state.update(id,'pending'));
-          queries.push(t.none('UPDATE service_details SET deleted=TRUE WHERE id=$1',+id));
+          queries.push(t.service_state.update(id,'pending','delete'));
+          //queries.push(t.none('UPDATE service_details SET deleted=TRUE WHERE id=$1',+id));
           var result = await t.batch(queries);
           if(result){
             return true
@@ -89,6 +95,19 @@ class ServiceDetailsRepository {
       }
     }
 
+    async updateExternalId(updateData){
+      const update = this.pgp.helpers.update(updateData, cs.external_id) + ' WHERE v.id = t.id RETURNING t.id';
+      return this.db.any(update).then((ids)=>{
+        if(ids.length===updateData.length){
+          return true
+        }
+        else{
+          return false
+        }
+      }).catch(error=>{
+        return false
+      });
+    }
 
 
 
@@ -108,7 +127,9 @@ function createColumnsets(pgp) {
         cs.insert = new pgp.helpers.ColumnSet(['service_description','service_name',
           'logo_uri','policy_uri','integration_environment','requester','protocol'],
           {table});
+        cs.insert_multi = new pgp.helpers.ColumnSet(['external_id','tenant','service_name','group_id','service_description','logo_uri','policy_uri','integration_environment','protocol'])
         cs.update = cs.insert.extend(['?id','deleted']);
+        cs.external_id = new pgp.helpers.ColumnSet(['?id','external_id'],{table:'service_details'});
     }
     return cs;
 }

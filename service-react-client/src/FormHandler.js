@@ -3,12 +3,14 @@ import initialValues from './initialValues';
 import {useParams} from "react-router-dom";
 import * as config from './config.json';
 import ServiceForm from "./ServiceForm.js";
+import ErrorComponent from "./Components/Error.js"
 import {LoadingBar} from './Components/LoadingBar';
 import Tabs from 'react-bootstrap/Tabs';
 import Tab from 'react-bootstrap/Tab';
 import Alert from 'react-bootstrap/Alert';
 import Jumbotron from 'react-bootstrap/Jumbotron';
 import Container from 'react-bootstrap/Container';
+import {Logout} from './Components/Modals';
 import { diff } from 'deep-diff';
 import { useTranslation } from 'react-i18next';
 
@@ -21,7 +23,7 @@ const EditService = (props) => {
     const [editPetition,setEditPetition] = useState();
     const [changes,setChanges] = useState();
     const {tenant_name} = useParams();
-
+    const {logout,setLogout} = useState(false);
     useEffect(()=>{
       getData();
       // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -84,6 +86,8 @@ const EditService = (props) => {
         }).then(response=>{
           if(response.status===200){
             return response.json();
+          }else if(response.status===401){
+            setLogout(true);
           }
           else {
             return false
@@ -105,6 +109,8 @@ const EditService = (props) => {
         }).then(response=>{
           if(response.status===200){
             return response.json();
+          }else if(response.status===401){
+            setLogout(true);
           }
           else {
             return false
@@ -121,6 +127,7 @@ const EditService = (props) => {
     <React.Fragment>
     {props.review?
       <React.Fragment>
+      <Logout logout={logout}/>
       {props.type==='edit'?
         <React.Fragment>
           <Alert variant='warning' className='form-alert'>
@@ -192,8 +199,10 @@ const ViewService = (props)=>{
   const { t, i18n } = useTranslation();
   const [service,setService] = useState();
   const [petition,setPetition] = useState();
+  const [deploymentError,setDeploymentError] = useState();
   const {tenant_name} = useParams();
-
+  const {logout,setLogout} = useState(false);
+  
   useEffect(()=>{
 
     getData();
@@ -202,6 +211,33 @@ const ViewService = (props)=>{
 
   const getData = () => {
     if(props.service_id){
+      if(props.get_error){
+          fetch(config.host+'tenants/'+tenant_name+'/services/'+props.service_id +'/error', {
+            method: 'GET', // *GET, POST, PUT, DELETE, etc.
+            credentials: 'include', // include, *same-origin, omit
+            headers: {
+            'Content-Type': 'application/json',
+            'Authorization': localStorage.getItem('token')
+            }
+        }).then(response=> {
+          if(response.status===200){
+            return response.json();
+          }else if(response.status===401){
+            setLogout(true);
+          }
+          else {
+            return false
+          }
+        }).then(response=> {
+          if(response){
+            console.log(response)
+            setDeploymentError(response.error)
+          }
+          else{
+            setLogout(true)
+          }
+        });
+      }
       fetch(config.host+'tenants/'+tenant_name+'/services/'+props.service_id, {
         method: 'GET', // *GET, POST, PUT, DELETE, etc.
         credentials: 'include', // include, *same-origin, omit
@@ -209,7 +245,17 @@ const ViewService = (props)=>{
           'Content-Type': 'application/json',
           'Authorization': localStorage.getItem('token')
         }
-      }).then(response=>response.json()).then(response=> {
+      }).then(response=>{
+        if(response.status===200){
+          return response.json();
+        }
+        else if(response.status===401){
+          setLogout(true);
+        }
+        else {
+          return false
+        }
+      }).then(response=> {
         if(response.service){
           setService(response.service);
         }
@@ -223,7 +269,17 @@ const ViewService = (props)=>{
           'Content-Type': 'application/json',
           'Authorization': localStorage.getItem('token')
         }
-      }).then(response=>response.json()).then(response=> {
+      }).then(response=>{
+        if(response.status===200){
+          return response.json();
+        }
+        else if(response.status===401){
+          setLogout(true);
+        }
+        else {
+          return false
+        }
+      }).then(response=> {
         if(response.petition){
           setPetition(response.petition);
         }
@@ -232,12 +288,14 @@ const ViewService = (props)=>{
   }
   return(
     <React.Fragment>
-      {service?<ServiceForm initialValues={service} disabled={true}  />:props.service_id?<LoadingBar loading={true}/>:petition?
+    <Logout logout={logout}/>
+    <ErrorComponent deploymentError={deploymentError} setDeploymentError={setDeploymentError} service_id={props.service_id} setLogout={setLogout}/>
+      {service?<ServiceForm initialValues={service} disabled={true} {...props} />:props.service_id?<LoadingBar loading={true}/>:petition?
         <React.Fragment>
           <Alert variant='danger' className='form-alert'>
             {t('view_create_info')}
           </Alert>
-          <ServiceForm initialValues={petition} disabled={true}/>
+          <ServiceForm initialValues={petition} disabled={true} {...props}/>
         </React.Fragment>
       :props.petition_id?<LoadingBar loading={true}/>:null
       }
@@ -277,7 +335,7 @@ const RequestedChangesAlert = (props) => {
           {props.tab1?<ServiceForm initialValues={props.tab1} {...props}/>:<LoadingBar loading={true}/>}
         </Tab>
       <Tab eventKey="service" title="View Deployed Service">
-        {props.tab2?<ServiceForm initialValues={props.tab2} disabled={true}  />:<LoadingBar loading={true}/>}
+        {props.tab2?<ServiceForm initialValues={props.tab2} disabled={true} {...props} />:<LoadingBar loading={true}/>}
       </Tab>
     </Tabs>
     </React.Fragment>
@@ -288,7 +346,7 @@ const NewService = (props)=>{
   return (
     <React.Fragment>
 
-      <ServiceForm user={props.user} initialValues={initialValues}/>
+      <ServiceForm user={props.user} initialValues={initialValues} {...props}/>
     </React.Fragment>
   )
 }

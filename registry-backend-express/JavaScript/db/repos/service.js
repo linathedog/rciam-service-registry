@@ -15,6 +15,7 @@ class ServiceRepository {
 
   }
 
+
   async get(id,tenant){
       return this.db.oneOrNone(sql.getService,{
           id:+id,
@@ -46,7 +47,7 @@ class ServiceRepository {
               service_id = result.id;
               queries.push(t.service_details_protocol.add('service',service,result.id));
               queries.push(t.service_contacts.add('service',service.contacts,result.id));
-              queries.push(t.service_state.add(result.id,'pending'));
+              queries.push(t.service_state.add(result.id,'pending','create'));
               if(service.protocol==='oidc'){
                 queries.push(t.service_multi_valued.add('service','oidc_grant_types',service.grant_types,result.id));
                 queries.push(t.service_multi_valued.add('service','oidc_scopes',service.scope,result.id));
@@ -67,18 +68,18 @@ class ServiceRepository {
       }
     }
 
-  async update(newState,targetId){
+  async update(newState,targetId,tenant){
     try{
       return this.db.tx('update-service',async t =>{
         let queries = [];
-        return t.service.get(targetId).then(async oldState=>{
+        return t.service.get(targetId,tenant).then(async oldState=>{
           if(oldState){
             let edits = calcDiff(oldState.service_data,newState);
             if(Object.keys(edits.details).length !== 0){
                queries.push(t.service_details.update(edits.details,targetId));
                queries.push(t.service_details_protocol.update('service',edits.details,targetId));
             }
-            queries.push(t.service_state.update(targetId,'pending'));
+            queries.push(t.service_state.update(targetId,'pending','edit'));
             for (var key in edits.add){
               if(key==='contacts') {
                 queries.push(t.service_contacts.add('service',edits.add[key],targetId));

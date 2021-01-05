@@ -11,9 +11,9 @@ import GroupsPage from '../Groups.js';
 import InvitationsPage from '../Invitations.js'
 import {tenantContext,userContext} from '../context.js';
 import {PageNotFound,TenantHandler} from '../Components/TenantHandler.js';
-
 const Routes = (props) => {
   const tenant = useContext(tenantContext);
+
   return(
   <div className="content-container">
     <Switch>
@@ -21,7 +21,6 @@ const Routes = (props) => {
       <Route exact path="/:tenant_name/code/:code">
         <Callback/>
       </Route>
-
       <TenantRoute path="/:tenant_name/home">
         <Home/>
       </TenantRoute>
@@ -143,6 +142,7 @@ const TenantRoute = (props) => {
 const ProtectedRoute= (props)=> {
   const user = useContext(userContext);
   const tenant = useContext(tenantContext);
+
   const childrenWithProps = React.Children.map(props.children, child =>
       React.cloneElement(child, {...props.location.state})
     );

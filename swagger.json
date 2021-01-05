@@ -1,8 +1,8 @@
 swagger: "2.0"
 info:
-  description: "This is an Express server used to manage identity provider services. Users manage services by creating requests handled by administrators. You can find out more about the project on the [github page](https://github.com/rciam/rciam-service-registry) or you can try it out live  [here](http://service-registry.aai-dev.grnet.gr/egi). "
+  description: "This is an Express server used to manage identity provider services. Users manage services by creating requests handled by administrators. You can find out more about the project on the [github page](https://github.com/rciam/rciam-federation-registry) or you can try it out live  [here](http://service-registry.aai-dev.grnet.gr/egi). "
   version: "1.0.1"
-  title: "Service Registry"
+  title: "Federation Registry"
   termsOfService: "http://swagger.io/terms/"
   contact:
     email: "apiteam@swagger.io"
@@ -25,7 +25,9 @@ tags:
 - name: "AMS"
   description: "Commmunication with the Argo Messenging Service"
 - name: "Agent"
-  description: "Deditated to the ams-agent"
+  description: "Deditated endpoints for the ams-agent"
+- name: "Deployer Agents"
+  description: "Manage Tenant Deployer Agents"
 schemes:
 - "https"
 paths:
@@ -352,6 +354,33 @@ paths:
           description: "Internal Error"
       security:
       - access_tokenAuth: []
+    post:
+      tags:
+      - "Services"
+      summary: "Add services"
+      description: "Endpoint used to directly add services to federation registry. Should be used only when necessary and not as an alternative way to add services."
+      operationId: "addServices"
+      parameters:
+        - in: path
+          type: string
+          name: name
+          description: "Tenant that the request is targeting"
+          required: true
+        - in: "body"
+          name: "body"
+          description: "Service details to add to the registry"
+          required: true
+          schema:
+            $ref: "#/definitions/PostServices"
+      responses:
+        "200":
+          description: "OK"
+        "422":
+          description: "Unprocessable Entry"
+        "401":
+          description: "Unauthenticated request"
+        "500":
+          description: "Internal Error"
   /agent/get_new_configurations:
     get:
       tags:
@@ -859,6 +888,160 @@ paths:
             description: "Internal Error"
         security:
           - access_tokenAuth: []
+  /tenant/{name}/agents:
+    get:
+      tags:
+      - "Deployer Agents"
+      summary: "Get agents"
+      description: "Get all deployer agents"
+      operationId: "getAgents"
+      produces:
+      - "application/json"
+      parameters:
+        - in: "path"
+          type: "string"
+          name: "name"
+          description: "Tenant that the request is targeting"
+          required: true
+      responses:
+        "200":
+          description: "OK"
+          schema:
+              $ref: "#/definitions/getAgents"
+        "404":
+          description: "No agent found"
+        "401":
+          description: "Unauthenticated request"
+        "500":
+          description: "Internal Error"
+    post:
+      tags:
+       - "Deployer Agents"
+      summary: "Add Agents"
+      description: "Add new Deployer Agents"
+      operationId: "addAgents"
+      produces:
+      - "application/json"
+      parameters:
+         - in: "path"
+           type: "string"
+           name: "name"
+           description: "Tenant that the request is targeting"
+           required: true
+         - in: "body"
+           name: "body"
+           required: true
+           schema:
+             $ref: "#/definitions/postAgents"
+      responses:
+         "200":
+           description: "OK"
+         "404":
+           description: "Could not add agents"
+         "401":
+           description: "Unauthenticated request"
+         "500":
+           description: "Internal Error"
+    delete:
+      tags:
+      - "Deployer Agents"
+      summary: "Delete Agents"
+      description: "Delete all Deployer Agents"
+      operationId: "deleteAgents"
+      produces:
+      - "application/json"
+      parameters:
+         - in: "path"
+           type: "string"
+           name: "name"
+           description: "Tenant that the request is targeting"
+           required: true
+      responses:
+         "200":
+           description: "OK"
+         "404":
+           description: "No agents where found to delete"
+         "401":
+           description: "Unauthenticated request"
+         "500":
+           description: "Internal Error"
+  /tenant/{name}/agents/id:
+    get:
+      tags:
+      - "Deployer Agents"
+      summary: "Get agent"
+      description: "Get deployer agents by id"
+      operationId: "getAgent"
+      produces:
+      - "application/json"
+      parameters:
+       - in: "path"
+         type: "string"
+         name: "name"
+         description: "Tenant that the request is targeting"
+         required: true
+      responses:
+       "200":
+         description: "OK"
+         schema:
+             $ref: "#/definitions/Agent"
+       "404":
+         description: "No agent found"
+       "401":
+         description: "Unauthenticated request"
+       "500":
+         description: "Internal Error"
+    put:
+     tags:
+     - "Deployer Agents"
+     summary: "Update agent"
+     description: "Update deployer agent"
+     operationId: "updateAgent"
+     produces:
+     - "application/json"
+     parameters:
+       - in: "path"
+         type: "string"
+         name: "name"
+         description: "Tenant that the request is targeting"
+         required: true
+       - in: "body"
+         name: "body"
+         required: true
+         schema:
+           $ref: "#/definitions/Agent"
+     responses:
+       "200":
+         description: "OK"
+       "404":
+         description: "No agent found"
+       "401":
+         description: "Unauthenticated request"
+       "500":
+         description: "Internal Error"
+    delete:
+     tags:
+     - "Deployer Agents"
+     summary: "Delete agent"
+     description: "Delete deployer agent"
+     operationId: "deleteAgent"
+     produces:
+     - "application/json"
+     parameters:
+       - in: "path"
+         type: "string"
+         name: "name"
+         description: "Tenant that the request is targeting"
+         required: true
+     responses:
+       "200":
+         description: "OK"
+       "404":
+         description: "No agent was found"
+       "401":
+         description: "Unauthenticated request"
+       "500":
+         description: "Internal Error"
 securityDefinitions:
   access_tokenAuth:
     type: "basic"
@@ -867,6 +1050,224 @@ securityDefinitions:
     name: "api_key"
     in: "header"
 definitions:
+  PostServices:
+    type: "array"
+    items:
+      type: "object"
+      required:
+        - integration_environment
+        - protocol
+        - client_id
+        - metadata_url
+      properties:
+        service_name:
+          type: "string"
+          description: "Human-readable application name"
+        external_id:
+          type: integer
+          description: "Unique identification of the service used by third party managing the configuration"
+        service_description:
+          type: "string"
+          description: "Human-readable text description"
+        logo_uri:
+          type: "string"
+          format: "uri"
+          description: "URL that points to a logo image"
+        policy_uri:
+          type: "string"
+          format: "uri"
+          description: "URL for the Policy Statement of this service"
+        integration_environment:
+          type: "string"
+          enum:
+          - "demo"
+          - "development"
+          - "production"
+        contacts:
+          type: "array"
+          items:
+            type: "object"
+            properties:
+              email:
+                type: "string"
+                format: "email"
+              type:
+                type: "string"
+                enum:
+                - "admin"
+                - "support"
+                - "technical"
+                - "security"
+        protocol:
+          type: "string"
+          enum:
+          - "oidc"
+          - "saml"
+        entity_id:
+          type: "string"
+          description: "Unique identifier for saml services"
+        metadata_uri:
+          type: "string"
+          format: "uri"
+          description: "Metadata uri required only for saml services"
+        client_id:
+          type: "string"
+          description: "Unique identifier rewuired only for oidc services"
+        grant_types:
+          type: "array"
+          items:
+            type: "string"
+            enum:
+            - "implicit"
+            - "authorization_code"
+            - "refresh_token"
+            - "client_credentials"
+            - "password"
+            - "redelegation"
+            - "token_exchange"
+            - "device"
+          description: "oidc specific"
+        scopes:
+          type: "array"
+          items:
+            type: "string"
+            enum:
+            - "openid"
+            - "email"
+            - "profile"
+            - "offline_access"
+            - "eduperson_entitlement"
+            - "eduperson_scoped_affiliation"
+            - "eduperson_unique_id"
+            - "refeds_edu"
+          description: "oidc specific"
+        allow_introspection:
+          type: "boolean"
+          description: "Allow calls to the Introspection Endpoint. For oidc services."
+        code_challenge_method:
+          type: "string"
+          enum:
+          - "plain"
+          - "S256"
+          description: "Proof Key for Code Exchange (PKCE) Code Challenge Method. For oidc services."
+        client_secret:
+          type: string
+          format: "password"
+          description: "Client secret, oidc specific"
+        generate_client_secret:
+          type: boolean
+          description: "Prompts backend to generate value for client secret. Oidc specific"
+        reuse_refresh_tokens:
+          type: "boolean"
+          description: "Adds the offline_access scope to the client's scope, oidc specific"
+        clear_access_tokens_on_refresh:
+          type: "boolean"
+          description: "oidc specific"
+        device_code_validity_seconds:
+          type: integer
+          multipleOf: 10
+          minimum: 0
+          maximum: 1000000
+          description: "oidc specific"
+        access_token_validity_seconds:
+          type: integer
+          multipleOf: 10
+          minimum: 0
+          maximum: 1000000
+          description: "oidc specific"
+        refresh_token_validity_seconds:
+          type: integer
+          multipleOf: 10
+          minimum: 0
+          maximum: 1000000
+          description: "oidc specific"
+        id_token_timeout_seconds:
+          type: integer
+          multipleOf: 10
+          minimum: 0
+          maximum: 1000000
+          description: "oidc specific"
+  Agent:
+    type: "object"
+    properties:
+      type:
+        type: "string"
+        enum:
+          - "mitreId"
+          - "ssp"
+          - "keycloak"
+          - "satosa"
+      entity_type:
+        type: "string"
+        enum:
+          - "service"
+          - "idp"
+      hostname:
+        type: "string"
+        example: "https://snf-ssp-1.grnet.gr"
+      entity_protocol:
+        type: "string"
+        enum:
+        - "oidc"
+        - "saml"
+  postAgents:
+    type: "object"
+    properties:
+      agents:
+        type: "array"
+        items:
+          type: "object"
+          properties:
+            type:
+              type: "string"
+              enum:
+              - "mitreId"
+              - "ssp"
+              - "keycloak"
+              - "satosa"
+            entity_type:
+              type: "string"
+              enum:
+              - "service"
+              - "idp"
+            hostname:
+              type: "string"
+              example: "https://snf-ssp-1.grnet.gr"
+            entity_protocol:
+              type: "string"
+              enum:
+              - "oidc"
+              - "saml"
+  getAgents:
+    type: "array"
+    items:
+      type: "object"
+      properties:
+        id:
+          type: "integer"
+          format: "int64"
+        tenant:
+          type: "string"
+        type:
+          type: "string"
+          enum:
+          - "mitreId"
+          - "ssp"
+          - "keycloak"
+          - "satosa"
+        entity_type:
+          type: "string"
+          enum:
+          - "service"
+          - "idp"
+        hostname:
+          type: "string"
+          example: "https://snf-ssp-1.grnet.gr"
+        entity_protocol:
+          type: "string"
+          enum:
+          - "oidc"
+          - "saml"
   User:
     type: "object"
     properties:
@@ -1259,7 +1660,7 @@ definitions:
                   example: "136969346945"
             subscription:
               type: "string"
-              default: "/projects/rciam-service-registry/subscriptions/express-push"
+              default: "/projects/rciam-federation-registry/subscriptions/express-push"
   PutState:
     type: "array"
     items:

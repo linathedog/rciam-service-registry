@@ -86,7 +86,7 @@ const approvePetition = (req,res,next,db) => {
           // Edit Service
           service_id = petition.meta_data.service_id;
           await t.batch([
-            t.service.update(petition.service_data,petition.meta_data.service_id),
+            t.service.update(petition.service_data,petition.meta_data.service_id,req.params.name),
             t.service_petition_details.review(req.params.id,req.user.sub,'approved',req.body.comment,req.params.name)
           ]);
         }

@@ -18,16 +18,20 @@ import {Link,useParams} from "react-router-dom";
 import Badge from 'react-bootstrap/Badge';
 import Pagination from 'react-bootstrap/Pagination';
 import {LoadingBar,ProcessingRequest} from './Components/LoadingBar';
-import {ListResponseModal} from './Components/Modals.js';
+import {ListResponseModal,Logout} from './Components/Modals.js';
 import { useTranslation } from 'react-i18next';
 import Alert from 'react-bootstrap/Alert';
 import {ConfirmationModal} from './Components/Modals';
-import {tenantContext} from './context.js';
+import {userContext,tenantContext} from './context.js';
+const {capitalWords} = require('./helpers.js');
+
+
 
 const ServiceList= (props)=> {
   // eslint-disable-next-line
   const [tenant,setTeanant] = useContext(tenantContext);
   const {tenant_name} = useParams();
+  const [logout,setLogout] = useState(false);
   // eslint-disable-next-line
   const { t, i18n } = useTranslation();
   const [loadingList,setLoadingList] = useState();
@@ -40,8 +44,10 @@ const ServiceList= (props)=> {
   const [responseTitle,setResponseTitle] = useState(null);
   const [searchString,setSearchString] = useState();
   const [expandFilters,setExpandFilters] = useState();
-  const [confirmationData,setConfirmationData] = useState({})
-
+  const [confirmationData,setConfirmationData] = useState({});
+  const [reset,setReset] = useState(false);
+  // eslint-disable-next-line
+  const [user,setUser] = useContext(userContext);
 
   let renderedConnections = 0;
   useEffect(()=>{
@@ -61,6 +67,8 @@ const ServiceList= (props)=> {
     }}).then(response=>{
       if(response.status===200){
         return response.json();
+      }else if(response.status===401){
+        setLogout(true);
       }
       else {
         return false
@@ -75,6 +83,7 @@ const ServiceList= (props)=> {
       });
   }
 
+
   // Get data, to create Service List
   const getServices = ()=> {
     fetch(config.host+'tenants/'+tenant_name+'/services', {
@@ -87,25 +96,29 @@ const ServiceList= (props)=> {
       if(response.status===200){
         return response.json();
       }
+      else if(response.status===401){
+        setLogout(true);
+      }
       else {
         return false
       }
     }).then(response=> {
       setLoadingList(false);
       if(response){
-        console.log(response.services);
+
         response.services.forEach((item,index)=>{
             response.services[index].display = true;
           })
         setServices(response.services);
-
+        console.log(response.services);
+        setReset(!reset);
       }
     });
   }
 
 
   let items = [];
-  let itemsPerPage = 5;
+  let itemsPerPage = 10;
   // issue here displaying less
   if(services){
     for (let number = 1; number <= Math.ceil(displayedServices/itemsPerPage) ; number++) {
@@ -137,6 +150,8 @@ const ServiceList= (props)=> {
         setAsyncResponse(false);
         if(response.status===200){
           setMessage(t('request_submit_success_msg'));
+        }else if(response.status===401){
+          setLogout(true);
         }
         else{
           setMessage(t('request_submit_failled_msg') + response.status);
@@ -158,6 +173,8 @@ const ServiceList= (props)=> {
         setAsyncResponse(false);
         if(response.status===200){
           setMessage(t('request_submit_success_msg'));
+        }else if(response.status===401){
+          setLogout(true);
         }
         else{
           setMessage(t('request_submit_failled_msg') + response.status);
@@ -165,6 +182,7 @@ const ServiceList= (props)=> {
       });
     }
   }
+
   const deletePetition = (id)=>{
     setAsyncResponse(true);
     fetch(config.host+'tenants/'+tenant_name+'/petitions/'+id, {
@@ -179,6 +197,8 @@ const ServiceList= (props)=> {
       getServices();
       if(response.status===200){
         setMessage(t('request_cancel_success_msg'));
+      }else if(response.status===401){
+        setLogout(true);
       }
       else{
       setMessage(t('request_cancel_fail_msg') + response.status);
@@ -189,9 +209,10 @@ const ServiceList= (props)=> {
 
   return(
     <React.Fragment>
+      <Logout logout={logout}/>
       <ListResponseModal message={message} modalTitle={responseTitle} setMessage={setMessage}/>
-      <ConfirmationModal active={confirmationData.action?true:false} setActive={setConfirmationData} action={()=>{if(confirmationData.action==='delete_service'){deleteService(...confirmationData.args)}else{deletePetition(...confirmationData.args)}}} title={confirmationData.title} accept={'Yes'} decline={'No'}/>
 
+      <ConfirmationModal active={confirmationData.action?true:false} setActive={setConfirmationData} action={()=>{if(confirmationData.action==='delete_service'){deleteService(...confirmationData.args)}else{deletePetition(...confirmationData.args)}}} title={confirmationData.title} accept={'Yes'} decline={'No'}/>
       <div>
         <LoadingBar loading={loadingList}>
         {invites&&invites.length>0?
@@ -245,7 +266,7 @@ const ServiceList= (props)=> {
           <Row className="filters-row">
               <Col>
                 <div className="filters-col">
-                  <Filters user={props.user} services={services} setServices={setServices} setActivePage={setActivePage} searchString={searchString}/>
+                  <Filters reset={reset} user={props.user} services={services} setServices={setServices} setActivePage={setActivePage} setSearchString={setSearchString} searchString={searchString}/>
                 </div>
               </Col>
             </Row>
@@ -293,19 +314,20 @@ function TableItem(props) {
   const {tenant_name} = useParams();
   // eslint-disable-next-line
   const { t, i18n } = useTranslation();
+    // eslint-disable-next-line
+  const [user,setUser] = useContext(userContext);
   return (
     <tr>
       <td className="petition-details">
         <div className="table-image-container">
-          <Image src={props.service.logo_uri} thumbnail/>
+        <Image src={props.service.logo_uri?props.service.logo_uri:process.env.PUBLIC_URL + '/placeholder.png'} thumbnail/>
         </div>
       </td>
       <td>
         <div className="flex-column">
-          <h3 className="petition-title">{props.service.service_name}</h3>
+          <h3 className="petition-title">{props.service.service_name?props.service.service_name:props.service.client_id?props.service.client_id:props.service.metadata_url}</h3>
           <div className="badge-container">
-
-            {props.service.hasOwnProperty('state')&&props.service.state!==null?<Badge className="status-badge" style={props.service.state==='deployed'?{background:tenant.color}:null} variant={props.service.state==='deployed'?'primary':'danger'}>{props.service.state==='deployed'?t('badge_deployed'):props.service.state==='error'?t('badge_error'):props.service.deleted===false?t('badge_pending'):t('badge_deleting')}</Badge>:null}
+            {props.service.hasOwnProperty('state')&&props.service.state!==null?<Badge className="status-badge" style={props.service.state==='deployed'?{background:tenant.color}:null} variant={props.service.state==='deployed'?'primary':'danger'}>{props.service.state==='deployed'?t('badge_deployed'):props.service.state==='error'?t('badge_error'):props.service.deployment_type==='delete'?t('badge_deleting'):t('badge_pending')}</Badge>:null}
             {props.service.type?<Badge className="status-badge" variant="warning">
               {props.service.type==='edit'?t('badge_edit_pending'):props.service.type==='create'?t('badge_create_pending'):t('badge_delete_pending')}
               </Badge>:null}
@@ -318,6 +340,38 @@ function TableItem(props) {
         <div className="petition-actions">
           <Row>
             <Col className='controls-col  controls-col-buttons'>
+            {props.service.state==='error'&&user.view_errors?
+              <React.Fragment>
+                <div className="notification">
+                  <FontAwesomeIcon icon={faExclamation} className="fa-exclamation"/>
+                  <FontAwesomeIcon icon={faCircle} className="fa-circle"/>
+                </div>
+                <OverlayTrigger
+                  placement='top'
+                  show={false}
+                  overlay={
+                    <Tooltip id={`tooltip-top`}>
+                      Deployment error click to view
+                    </Tooltip>
+                  }
+                >
+                  <Link
+                    className='button-link'
+                    to={{
+                    pathname:'/'+tenant_name+"/form/view",
+                    state:{
+                      service_id:props.service.service_id,
+                      petition_id:props.service.petition_id,
+                      type:props.service.type,
+                      get_error:props.service.state==='error'&&user.view_errors?'get_errors':undefined
+                    }
+                  }}>
+
+                  <Button variant="secondary"><FontAwesomeIcon icon={faEye}/>{t('button_view')}</Button>
+                </Link>
+                </OverlayTrigger>
+              </React.Fragment>
+              :
               <Link
                 className='button-link'
                 to={{
@@ -325,11 +379,16 @@ function TableItem(props) {
                 state:{
                   service_id:props.service.service_id,
                   petition_id:props.service.petition_id,
-                  type:props.service.type
+                  type:props.service.type,
+                  get_error:props.service.state==='error'&&user.view_errors?'get_errors':undefined
                 }
               }}>
-                <Button variant="secondary"><FontAwesomeIcon icon={faEye}/>{t('button_view')}</Button>
-              </Link>
+
+              <Button variant="secondary"><FontAwesomeIcon icon={faEye}/>{t('button_view')}</Button>
+            </Link>
+            }
+
+
               {props.service.owned?
                 <React.Fragment>
                   {props.service.comment?
@@ -400,7 +459,7 @@ function TableItem(props) {
                   </div>
                 </Dropdown.Item>
               :null}
-              {props.service.owned && props.service.state==='deployed'?
+              {props.service.owned && props.service.state==='deployed'&&props.service.type?
                 <Dropdown.Item>
                   <div
                   onClick={()=>{
@@ -424,7 +483,7 @@ function TableItem(props) {
                       service_id:props.service.service_id,
                       group_id:props.service.group_id
                     }
-                  }}>{props.service.group_manager?t('manage_group'):t('view_group')}</Link>
+                  }}>{props.service.group_manager||user.actions.includes('invite_to_group')?t('manage_group'):t('view_group')}</Link>
                 </div>
               </Dropdown.Item>
 
@@ -456,11 +515,23 @@ function TableItem(props) {
 
 function Filters (props) {
 
+
   const [showPending,setShowPending] = useState(false);
   const [showOwned,setShowOwned] = useState(false);
   const [showEnvironment,setShowEnvironment] = useState();
   // eslint-disable-next-line
   const { t, i18n } = useTranslation();
+  // eslint-disable-next-line
+  const [tenant,setTenant] = useContext(tenantContext);
+
+
+  useEffect(()=>{
+    setShowPending(false);
+    setShowEnvironment();
+    setShowOwned(false);
+    props.setSearchString('');
+    // eslint-disable-next-line
+  },[props.reset]);
 
   useEffect(()=>{
     if(props.services.length>0){
@@ -483,7 +554,10 @@ function Filters (props) {
     return (showEnvironment&&item.integration_environment!==showEnvironment)
   }
   const SearchFilter = (item) => {
-    return (props.searchString&&!item.service_name.toLowerCase().includes(props.searchString.toLowerCase().trim()))
+    if(item.service_name||!props.searchString){
+      return (props.searchString&&!item.service_name.toLowerCase().includes(props.searchString.toLowerCase().trim()))
+    }
+    else{return true}
   }
   const PendingFilter = (item) =>{
     return (showPending&&!item.petition_id)
@@ -493,6 +567,8 @@ function Filters (props) {
   }
 
 
+
+
   return (
     <React.Fragment>
       <SimpleCheckboxFilter name={t('pending_filter')} setFilter={setShowPending} filterValue={showPending} />
@@ -500,12 +576,12 @@ function Filters (props) {
 
       <div className='select-filter-container'>
           <select value={showEnvironment} onChange={(e)=>{
-
             setShowEnvironment(e.target.value);}}>
+
             <option value=''>{t('all_environments_filter')}</option>
-            <option value='demo'>{t('demo_filter')}</option>
-            <option value='production'>{t('production_filter')}</option>
-            <option value='development'>{t('development_filter')}</option>
+            {tenant.form_config.integration_environment.map((item,index)=>{
+              return <option value={item} key={index}>{capitalWords(item)}</option>
+            })}
           </select>
       </div>
     </React.Fragment>
